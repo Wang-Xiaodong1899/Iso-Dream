@@ -9,7 +9,6 @@ tqdm
 tensorboard
 moviepy
 shutilwhich
-pickle
 pillow
 sklearn
 matplotlib
