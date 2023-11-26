@@ -10,7 +10,7 @@ tensorboard
 moviepy
 shutilwhich
 pillow
-sklearn
+scikit-learn
 matplotlib
 lpips
 scikit-image
