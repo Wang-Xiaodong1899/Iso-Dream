@@ -10,7 +10,7 @@ import tools
 
 to_np = lambda x: x.detach().cpu().numpy()
 
-
+# core model
 class WorldModel(nn.Module):
 
   def __init__(self, step, config):
@@ -19,6 +19,7 @@ class WorldModel(nn.Module):
     self._use_amp = True if config.precision==16 else False
     self._config = config
     self.mask = config.mask
+    # shared encoder
     self.encoder = networks.ConvEncoder(config.grayscale,
         config.cnn_depth, config.act, config.encoder_kernels, config)
     if config.size[0] == 64 and config.size[1] == 64:
@@ -54,7 +55,7 @@ class WorldModel(nn.Module):
         config.decoder_thin)
     elif config.mask == 3:
       print('\033[1;35mUsing Three mask decoders \033[0m')
-      self.heads['image'] = networks.TrippleDecoder(
+      self.heads['image'] = networks.TrippleDecoder(# image decoder
         feat_size,  # pytorch version
         config.cnn_depth, config.act, shape, config.decoder_kernels,
         config.decoder_thin)
@@ -72,7 +73,7 @@ class WorldModel(nn.Module):
       self.heads['action'] = networks.DenseHead(
           embed_size,  # pytorch version
           [config.num_actions], config.reward_layers, config.units, config.act)
-    if config.pred_discount:
+    if config.pred_discount:#True
       self.heads['discount'] = networks.DenseHead(
           double_size*feat_size,  # pytorch version
           [], config.discount_layers, config.units, config.act, dist='binary')
@@ -83,7 +84,7 @@ class WorldModel(nn.Module):
         config.weight_decay, opt=config.opt,
         use_amp=self._use_amp)
     self._scales = dict(
-        reward=config.reward_scale, discount=config.discount_scale, action=config.action_scale)
+        reward=config.reward_scale, discount=config.discount_scale, action=config.action_scale) #1, 5.0, 1
 
 
   def _train(self, data):
@@ -95,7 +96,7 @@ class WorldModel(nn.Module):
       with torch.cuda.amp.autocast(self._use_amp):
         embed = self.encoder(data)
         embed_back = self.encoder(data, bg=True)
-        embed_back = embed_back[:, :self._config.init_frame, :].reshape(self._config.batch_size, -1)
+        embed_back = embed_back[:, :self._config.init_frame, :].reshape(self._config.batch_size, -1) # get 10 observations
         background = self.background_decoder(embed_back.unsqueeze(1)).mode()
         background = torch.clamp(background, min=-0.5, max=0.5)
         self.dynamics.rollout_free = True
@@ -119,13 +120,13 @@ class WorldModel(nn.Module):
                 like = pred.log_prob(data[name])  
             else:
               pred, _, _, _, _ = self.heads['image'](feat, feat_free, data['image'])
-              like = pred.log_prob(data[name])
+              like = pred.log_prob(data[name])# image loss
           elif 'action' in name:
             embed_action, embed_free = torch.chunk(embed, chunks=2, dim=-1)
             inp = embed_action[:, 1:, :] - embed_action[:, :-1, :]
             pred = head(inp)
-            like = pred.log_prob(data[name][:, 1:, :])
-          else:
+            like = pred.log_prob(data[name][:, 1:, :]) # action loss
+          else:# reward, discount
             grad_head = (name in self._config.grad_heads)
             feat = self.dynamics.get_feat(post)
             feat = feat if grad_head else feat.detach()
@@ -133,7 +134,7 @@ class WorldModel(nn.Module):
             if self._config.autoencoder:
               like = pred.log_prob(data[name][:, 1:, :]) 
             else:
-              like = pred.log_prob(data[name])
+              like = pred.log_prob(data[name]) # reward loss, discount loss
           likes[name] = like
           losses[name] = -torch.mean(like) * self._scales.get(name, 1.0)
         model_loss = sum(losses.values()) + kl_loss
@@ -177,7 +178,7 @@ class WorldModel(nn.Module):
     else:
       truth = data['image'][:6] + 0.5
     embed = self.encoder(data)
-
+    # 为什么有两步
     self.dynamics.rollout_free = True
     states, _ = self.dynamics.observe(embed[:6, :5], data['action'][:6, :5])
     feat, feat_free = self.dynamics.get_feat_for_decoder(states)
@@ -201,7 +202,7 @@ class WorldModel(nn.Module):
       openl, openl_gen_action, openl_gen_free, openl_mask_action, openl_mask_free = self.heads['image'](feat, feat_free, background, start=0)
     else:
       openl, openl_gen_action, openl_gen_free, openl_mask_action, openl_mask_free = self.heads['image'](feat, feat_free)
-    openl = openl.mode()
+    openl = openl.mode() #openl是什么？
     # openl = self.heads['image'](self.dynamics.get_feat(prior)).mode()
     reward_prior = self.heads['reward'](self.dynamics.get_feat(prior)).mode()
     model = torch.cat([recon[:, :5] + 0.5, openl + 0.5], 1)
@@ -336,6 +337,7 @@ class ImagBehavior(nn.Module):
     metrics['reward_mean'] = to_np(torch.mean(reward))
     metrics['reward_std'] = to_np(torch.std(reward))
     metrics['actor_ent'] = to_np(torch.mean(actor_ent))
+    # opt actor and value network
     with tools.RequiresGrad(self):
       metrics.update(self._actor_opt(actor_loss, self.actor.parameters()))
       if self._config.rollout_policy:

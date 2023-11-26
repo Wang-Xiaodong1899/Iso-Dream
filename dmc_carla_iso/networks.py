@@ -7,6 +7,7 @@ from math import sqrt
 
 import tools
 
+# Use GRU
 
 class RSSM(nn.Module):
 
@@ -39,6 +40,7 @@ class RSSM(nn.Module):
 
     inp_layers = []
     inp_layers_free = []
+    # input dim 
     if self._discrete:
       inp_dim = self._stoch * self._discrete + num_actions
     else:
@@ -60,10 +62,10 @@ class RSSM(nn.Module):
       if i == 0:
         inp_dim = self._hidden
     self._inp_layers = nn.Sequential(*inp_layers)
-    self._inp_layers_free = nn.Sequential(*inp_layers_free)
+    self._inp_layers_free = nn.Sequential(*inp_layers_free) # Is it action-free branch?
 
     if cell == 'gru':
-      self._cell = nn.GRUCell(self._hidden, self._deter)
+      self._cell = nn.GRUCell(self._hidden, self._deter) # input_size, hidden_size
       self._cell_free = nn.GRUCell(self._hidden, self._deter)
     elif cell == 'gru_layer_norm':
       self._cell = GRUCell(self._hidden, self._deter, norm=True)
@@ -95,6 +97,8 @@ class RSSM(nn.Module):
       if i == 0:
         inp_dim = self._hidden
     self._obs_out_layers = nn.Sequential(*obs_out_layers)
+
+    # obs_out_layers_free is same as obs_out_layers???
 
     obs_out_layers_free = []
     if self._temp_post:
@@ -292,14 +296,14 @@ class RSSM(nn.Module):
           embed = torch.zeros(shape)
         x = torch.cat([prev_stoch, prev_action, embed], -1)
       else:
-        x = torch.cat([prev_stoch, prev_action], -1)
+        x = torch.cat([prev_stoch, prev_action], -1) # s_t-1, a_t-1
 
-      x = self._inp_layers(x)
+      x = self._inp_layers(x) # map to same feature dim
       for _ in range(self._rec_depth): # rec depth is not correctly implemented
         deter = prev_state['deter']
         x, deter = self._cell(x, [deter])
         deter = deter[0]  # Keras wraps the state in a list.
-      x = self._img_out_layers(x)
+      x = self._img_out_layers(x) # several layers
       stats = self._suff_stats_layer('ims', x, free=False)
       if sample:
         stoch = self.get_dist(stats, free=False).sample()
@@ -318,6 +322,7 @@ class RSSM(nn.Module):
       x = prev_state['last_embed_free']
     
     assert not self._discrete and not self._shared, 'not implemented!'
+    # for action-free branch
     x = self._inp_layers_free(x)
     for _ in range(self._rec_depth): # rec depth is not correctly implemented
       deter_free = prev_state['deter_free']
@@ -467,7 +472,7 @@ class ConvEncoder(nn.Module):
       obs = {'image': obs}
     x = obs['image'].reshape((-1,) + tuple(obs['image'].shape[-3:]))
     x = x.permute(0, 3, 1, 2)
-    x = self.layers(x)  ### 64*14*14
+    x = self.layers(x)  ### 64*14*14 image input
     if bg:
       x_back = self.encoder_back(x)
       x_back = x_back.reshape([x_back.shape[0], np.prod(x_back.shape[1:])])
@@ -635,16 +640,16 @@ class TrippleDecoder(nn.Module):
       feat_free_t = feat_free[:, t, :].unsqueeze(1)
       gen_action = self.decoder(feat_t)
       gen_free = self.decoder_free(feat_free_t)
-      mask_1 = gen_action[:, :, :, :, -1].unsqueeze(-1)
+      mask_1 = gen_action[:, :, :, :, -1].unsqueeze(-1)#mask
       mask_2 = gen_free[:, :, :, :, -1].unsqueeze(-1)
-      frame_action = gen_action[:, :, :, :, :-1]
+      frame_action = gen_action[:, :, :, :, :-1]#frame
       frame_free = gen_free[:, :, :, :, :-1]
       frame_action = torch.clamp(frame_action, min=-0.5, max=0.5)
       frame_free = torch.clamp(frame_free, min=-0.5, max=0.5)
       mask_1 = nn.Sigmoid()(mask_1)
       mask_2 = nn.Sigmoid()(mask_2)
       mask_3 = 1 - mask_1 - mask_2
-      frame_t = mask_1 * frame_action + mask_2 * frame_free + mask_3 * last_frame
+      frame_t = mask_1 * frame_action + mask_2 * frame_free + mask_3 * last_frame # add
       gen_frames.append(frame_t)
       out_action.append(mask_1 * frame_action)
       out_free.append(mask_2 * frame_free)
