@@ -8,7 +8,7 @@ pyprind
 tqdm
 tensorboard
 moviepy
-shutil
+shutilwhich
 pickle
 pillow
 sklearn
