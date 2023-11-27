@@ -74,6 +74,7 @@ class Dreamer(nn.Module):
       steps = (
           self._config.pretrain if self._should_pretrain()
           else self._config.train_steps)
+      # first pretrain 100 steps
       for _ in range(steps):
         self._train(next(self._dataset))
       if self._should_log(step):
