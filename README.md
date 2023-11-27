@@ -102,6 +102,8 @@ Iso-Dream is implemented and tested on Ubuntu 18.04 with python == 3.7, PyTorch 
   2. Training
      ```
      python dreamer.py --logdir log/iso_dmc1 --kl_balance 0.8 --seed 4 --configs defaults dmc --task dmcbg_walker_walk
+
+     python dreamer.py --logdir log/iso_dmc1 --kl_balance 0.8 --seed 4 --configs defaults dmc --task dmc_finger_spin
      ```
   
 
