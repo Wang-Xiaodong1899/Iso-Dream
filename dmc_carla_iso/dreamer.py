@@ -75,6 +75,8 @@ class Dreamer(nn.Module):
           self._config.pretrain if self._should_pretrain()
           else self._config.train_steps)
       # first pretrain 100 steps
+      print('inside dreamer call function')
+      print(f'Training for {steps} steps.')
       for _ in range(steps):
         self._train(next(self._dataset))
       if self._should_log(step):
@@ -90,6 +92,7 @@ class Dreamer(nn.Module):
     if training:
       self._step += len(reset)
       self._logger.step = self._config.action_repeat * self._step
+      print(f'Step {self._step}, logger step {self._logger.step}.')
     return policy_output, state
 
   def _policy(self, obs, state, training):
@@ -347,7 +350,7 @@ def main(config):
     agent._should_pretrain._once = False
 
   state = None
-  while agent._step < config.steps:
+  while agent._step < config.steps: #1e6
     logger.write()
     print('Start evaluation.')
     agent.eval()
