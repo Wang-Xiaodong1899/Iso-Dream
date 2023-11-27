@@ -111,7 +111,9 @@ class Logger:
     value = value.transpose(1, 4, 2, 0, 3).reshape((1, T, C, H, B*W))
     self._writer.add_video(name, value, step, 16)
 
-
+# eval, steps=0, episodes=1
+# train, steps=0, episodes=0
+# env shape?
 def simulate(agent, envs, steps=0, episodes=0, state=None):
   # Initialize or unpack simulation state.
   if state is None:
