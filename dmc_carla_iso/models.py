@@ -298,7 +298,7 @@ class ImagBehavior(nn.Module):
 
         with tools.RequiresGrad(self.value):
           with torch.cuda.amp.autocast(self._use_amp):
-            value = self.value(value_input[:-1])
+            value = self.value(value_input[:-1]) # image_feat-> value_model
             target = torch.stack(target, dim=1)
             value_loss = -value.log_prob(target.detach())
             if self._config.value_decay:
@@ -373,7 +373,7 @@ class ImagBehavior(nn.Module):
       else:
         feat = dynamics.get_feat(state)
       action = policy(feat.detach()).sample()
-      succ = dynamics.img_step(state, action, sample=self._config.imag_sample)
+      succ = dynamics.img_step(state, action, sample=self._config.imag_sample) # succ {'stoch': stoch, 'deter': deter, **stats}
       return succ, feat, action
     feat = 0 * dynamics.get_feat(start)
     if self._config.use_free:
